@@ -1,22 +1,49 @@
 package models
 
 import (
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	"context"
+	"fmt"
+	"log"
+	"os"
+	"time"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var DB *gorm.DB
+var DB *mongo.Database
 
 func ConnectDatabase() {
-	database, err := gorm.Open(mysql.Open("gin_jwt:tmp_pwd@tcp(127.0.0.1:3306)/gin_jwt?charset=utf8&parseTime=true"), &gorm.Config{})
+	connectionString := os.Getenv("MONGODB_URI")
+	if connectionString == "" {
+		// Fallback for local development
+		connectionString = "mongodb+srv://auth-api:oPrJhEuCvRF*Y9@cluster0.64wve.mongodb.net/"
+	}
+	clientOptions := options.Client().ApplyURI(connectionString)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		panic("Failed to connect to database!")
+		log.Fatal("Failed to connect to MongoDB: ", err)
 	}
 
-	DB = database
+	// Check the connection
+	err = client.Ping(ctx, nil)
+	if err != nil {
+		log.Fatal("Could not ping MongoDB: ", err)
+	}
+
+	fmt.Println("Connected to MongoDB!")
+	DB = client.Database("gin_jwt_db")
 }
 
 func DBMigrate() {
-	DB.AutoMigrate(&Blog{}, &User{})
+	// MongoDB is schema-less, but we can ensure indexes here if needed.
+	fmt.Println("Database migration (schema-less) completed.")
+}
+
+func GetCollection(name string) *mongo.Collection {
+	return DB.Collection(name)
 }

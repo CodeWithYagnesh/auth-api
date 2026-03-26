@@ -1,20 +1,29 @@
 package models
 
 import (
+	"context"
+	"fmt"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
-	"gorm.io/gorm"
 )
 
 type User struct {
-	gorm.Model
-	Email    string `gorm:"size:64,index"`
-	Password string `gorm:"size:255"`
+	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Email     string             `bson:"email" json:"email"`
+	Password  string             `bson:"password" json:"-"`
+	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
 }
 
 func CheckUserAvailability(email string) bool {
-	var user User
-	DB.Where("email = ?", email).First(&user)
-	return user.ID == 0 // true if the email is available
+	collection := GetCollection("users")
+	var result bson.M
+	err := collection.FindOne(context.Background(), bson.M{"email": email}).Decode(&result)
+	return err == mongo.ErrNoDocuments
 }
 
 func UserCreate(email string, password string) *User {
@@ -23,19 +32,34 @@ func UserCreate(email string, password string) *User {
 	if err != nil {
 		return nil
 	}
-	entry := User{Email: email, Password: string(hashedPassword)}
-	DB.Create(&entry)
-	return &entry
+
+	user := User{
+		ID:        primitive.NewObjectID(),
+		Email:     email,
+		Password:  string(hashedPassword),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	collection := GetCollection("users")
+	_, err = collection.InsertOne(context.Background(), user)
+	if err != nil {
+		fmt.Println("Error creating user:", err)
+		return nil
+	}
+
+	return &user
 }
 
 func UserMatchPassword(email string, password string) *User {
+	collection := GetCollection("users")
 	var user User
-	DB.Where("email = ?", email).First(&user)
-	if user.ID == 0 {
-		return &user
+	err := collection.FindOne(context.Background(), bson.M{"email": email}).Decode(&user)
+	if err != nil {
+		return &User{}
 	}
 
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
 		return &User{}
 	} else {
@@ -43,8 +67,12 @@ func UserMatchPassword(email string, password string) *User {
 	}
 }
 
-func UserFromId(id uint) *User {
+func UserFromId(id primitive.ObjectID) *User {
+	collection := GetCollection("users")
 	var user User
-	DB.Where("id = ?", id).First(&user)
+	err := collection.FindOne(context.Background(), bson.M{"_id": id}).Decode(&user)
+	if err != nil {
+		return &User{}
+	}
 	return &user
 }
