@@ -9,5 +9,5 @@ func main() {
 	r := app.SetupRouter()
 
 	log.Println("Server started on port 80!")
-	r.Run(":80")
+	r.Run()
 }
