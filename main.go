@@ -8,6 +8,6 @@ import (
 func main() {
 	r := app.SetupRouter()
 
-	log.Println("Server started on port 8081!")
-	r.Run(":8081")
+	log.Println("Server started on port 80!")
+	r.Run(":80")
 }
