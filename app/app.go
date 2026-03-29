@@ -22,6 +22,7 @@ func SetupRouter() *gin.Engine {
 	r.DELETE("/logout", controllers.Logout)
 
 	r.GET("/me", middlewares.AuthMiddleware, controllers.GetMe)
+	r.Any("/verify", middlewares.AuthMiddleware, controllers.GetMe)
 
 	return r
 }

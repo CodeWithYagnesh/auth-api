@@ -13,8 +13,16 @@ import (
 )
 
 func AuthMiddleware(c *gin.Context) {
-	// Retrieve the cookie from the request
+	// Retrieve the cookie or Authorization header from the request
 	tokenStr, err := c.Cookie("Auth")
+	if err != nil {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader != "" && len(authHeader) > 7 && authHeader[:7] == "Bearer " {
+			tokenStr = authHeader[7:]
+			err = nil
+		}
+	}
+
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "No auth token"})
 		c.Abort()
